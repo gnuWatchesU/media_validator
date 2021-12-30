@@ -1,9 +1,13 @@
 import json
+import logging
+
 import integrity
 import argparse
 import os
 import sys
 import shutil
+
+from db import Inventory
 
 
 def main():
@@ -41,15 +45,15 @@ def main():
         sys.exit("Needed utility 'mkvmerge' is not installed.")
 
     conf_dir = os.path.expanduser("~/.media_validator/")
-    if not os.path.exists(conf_dir):  # TODO: Make this recursive
+    if not os.path.exists(conf_dir):
         os.makedirs(conf_dir)
 
     # Default config
     config = {
-        'db_path': conf_dir + "inventory.db",
-        'log': conf_dir + "scan.log",
-        'loglevel': "INFO",
-        'printlog': False,
+        'db_path': os.path.join(conf_dir, "inventory.db"),
+        'log': os.path.join(conf_dir, "scan.log"),
+        'log_level': "INFO",
+        'print_log': False,
         'action': None,
         'types': ["mkv", "m4v", "avi", "mov", "avchd", "mpeg", "mp4", "wmv", "mov", "mpg", "ogv", "flv"],
         'force': False,
@@ -65,10 +69,11 @@ def main():
         }
     }
 
-    config_path = conf_dir + 'config.json'
+    config_path = os.path.join(conf_dir, 'config.json')
     if os.path.isfile(config_path):
         # Overlay any values set in the config.json
-        config.update(json.load(config_path))
+        with open(config_path) as fh:
+            config.update(json.load(fh))
 
     # Override if command line
     config.update(args.__dict__)
@@ -76,7 +81,9 @@ def main():
     try:
         config['loglevel'] = config['loglevel'].upper()
     except AttributeError:
-        config['loglevel']
+        config['loglevel'] = logging.INFO
+
+    inv = Inventory(config)
 
     with integrity.MediaChecker(config) as checker:
         checker.enqueue_path(args.path)
